@@ -43,6 +43,13 @@ bool thread_terminate = false;
 
 /*********************** libaray functions  *******************/
 
+
+/**
+This function initializes the thread library. The input to the function is the length of
+a quantum in micro-seconds. It is an error to call this function with non-positive quantum_usecs.
+Return value: On success, return 0. On failure, return -1.
+*/
+
 int uthread_init(int quantum_usecs){
     if(quantum_usecs < 0){
         cerr << LIBRARY_ERROR_MESSAGE << "invalid quantum\n";
@@ -56,6 +63,14 @@ int uthread_init(int quantum_usecs){
     set_timer();
     return SUCCESS;
 }
+
+/**
+This function creates a new thread, whose entry point is the function f with the signature
+void f(void). The thread is added to the end of the READY threads list. The uthread_spawn function should
+fail if it will cause the number of concurrent threads to exceed the limit (MAX_THREAD_NUM). Each
+thread should be allocated with a stack of size STACK_SIZE bytes.
+Return value: On success, return the ID of the created thread. On failure, return -1.
+*/
 
 int uthread_spawn(void (*f)(void)){
     sigprocmask(SIG_SETMASK, &set, nullptr);
@@ -77,6 +92,14 @@ int uthread_spawn(void (*f)(void)){
     sigprocmask(SIG_UNBLOCK, &set, nullptr);
     return id;
 }
+
+/**
+This function terminates the thread with ID tid and deletes it from all relevant control
+structures. All the resources allocated by the library for this thread wiil be released. If no thread with ID
+tid exists it is considered an error. Terminating the main thread (tid == 0) will result in the termination of the
+entire process using exit(0) (after releasing the assigned library memory).
+Return value: The function returns 0 if the thread was successfully terminated 
+*/
 
 int uthread_terminate(int tid){
     auto i = map_treads.find(tid);
@@ -110,6 +133,14 @@ int uthread_terminate(int tid){
     return SUCCESS;
 }
 
+/**
+This function blocks the thread with ID tid. The thread may be resumed later using
+uthread_resume. If no thread with ID tid exists it is considered an error. In addition, it is an error to try
+blocking the main thread (tid == 0). If a thread blocks itself, a scheduling decision wiil be made.
+Blocking a thread in BLOCKED state has no effect and is not considered an error.
+Return value: On success, return 0. On failure, return -1.
+*/
+
 int uthread_block(int tid){
     auto i = map_treads.find(tid);
     if(tid == 0 || i == map_treads.end()){
@@ -129,6 +160,13 @@ int uthread_block(int tid){
     return SUCCESS;
 }
 
+/**
+This function resumes a blocked thread with ID tid and moves it to the READY state.
+Resuming a thread in a RUNNING or READY state has no effect and is not considered an error. If no
+thread with ID tid exists it is considered an error.
+Return value: On success, return 0. On failure, return -1.
+*/
+
 int uthread_resume(int tid){
     auto i = map_treads.find(tid);
     if(i == map_treads.end()){
@@ -145,6 +183,14 @@ int uthread_resume(int tid){
     sigprocmask(SIG_UNBLOCK, &set, nullptr);
     return SUCCESS;
 }
+
+/**
+This function tries to acquire a mutex. If the mutex is unlocked, it locks it and returns. If the
+mutex is already locked by different thread, the thread moves to BLOCK state. In the future when this
+thread will be back to RUNNING state, it will try again to acquire the mutex.
+If the mutex is already locked by this thread, it is considered an error.
+Return value: On success, return 0. On failure, return -1.
+*/
 
 int uthread_mutex_lock(){
     if(mutex_uthreads.state == LOCK && mutex_uthreads.id == run_ID){
@@ -168,6 +214,13 @@ int uthread_mutex_lock(){
     return SUCCESS;
 }
 
+/**
+This function releases a mutex. If there are blocked threads waiting for this mutex, one of
+them moves to READY state.
+If the mutex is already unlocked, it is considered an error.
+Return value: On success, return 0. On failure, return -1.
+*/
+
 int uthread_mutex_unlock(){
     if(mutex_uthreads.state == UNLOCK || (mutex_uthreads.state == LOCK && mutex_uthreads.id != run_ID)){
         cerr << LIBRARY_ERROR_MESSAGE << "can not release the mutex twice\n";
@@ -182,13 +235,32 @@ int uthread_mutex_unlock(){
 
 }
 
+/**
+This function returns the thread ID of the calling thread.
+Return value: The ID of the calling thread.
+*/
+
 int uthread_get_tid(){
     return run_ID;
 }
 
+/**
+This function returns the total number of quantums that were started since the library was
+initialized, including the current quantum.
+Return value: The total number of quantums.
+*/
+
 int uthread_get_total_quantums(){
     return total_quantums;
 }
+
+/**
+This function returns the number of quantums the thread with ID tid was in RUNNING state.
+On the first time a thread runs, the function wiil return 1. Every additional quantum that the thread starts
+will increase this value by 1 (so if the thread with ID tid is in RUNNING state when this function is
+called, include also the current quantum). If no thread with ID tid exists, it is considered an error.
+Return value: On success, return the number of quantums of the thread with ID tid. On failure, return -1
+*/
 
 int uthread_get_quantums(int tid){
     sigprocmask(SIG_SETMASK, &set, nullptr);
