@@ -113,7 +113,7 @@ int uthread_terminate(int tid){
         mutex_uthreads.state = UNLOCK;
         rm_mutex();
     }
-    if(i->second->get_state() == READY && i->second->get_mutex_lock() == UNLOCK) {
+    if(i->second->get_state() == READY && i->second->get_mutex_state() == UNLOCK) {
         ready_list.remove(tid);
 
     } else if(tid == 0){  //we need to check if we in running state
@@ -142,9 +142,13 @@ Return value: On success, return 0. On failure, return -1.
 */
 
 int uthread_block(int tid){
-    auto i = map_treads.find(tid);
-    if(tid == 0 || i == map_treads.end()){
-        cerr << LIBRARY_ERROR_MESSAGE << "can not block tread 0 || the tread with tid not found\n";
+    if (tid == 0) {
+        cerr << LIBRARY_ERROR_MESSAGE << "can not block tread 0\n";
+        return ERROR;
+    }
+    auto i = map_treads.find(tid); 
+    if(i == map_treads.end()){
+        cerr << LIBRARY_ERROR_MESSAGE << "the tread with tid not found\n";
         return ERROR;
     }
     sigprocmask(SIG_SETMASK, &set, nullptr);
@@ -152,7 +156,7 @@ int uthread_block(int tid){
         i->second->set_state(BLOCK);
         schedule(tid);
     }
-    else if(i->second->get_state() == READY && i->second->get_mutex_lock() == UNLOCK) {
+    else if(i->second->get_state() == READY && i->second->get_mutex_state() == UNLOCK) {
         ready_list.remove(tid);
     }
     i->second->set_state(BLOCK);
@@ -175,7 +179,7 @@ int uthread_resume(int tid){
     }
     sigprocmask(SIG_SETMASK, &set, nullptr);
     if(i->second->get_state() == BLOCK){
-        if(i->second->get_mutex_lock() == UNLOCK){
+        if(i->second->get_mutex_state() == UNLOCK){
             ready_list.push_back(tid);
         }
         i->second->set_state(READY);
@@ -205,7 +209,7 @@ int uthread_mutex_lock(){
     }
     while (mutex_uthreads.state == LOCK) {
         mutex_block_list.push_back(run_ID);
-        map_treads[run_ID]->set_mutex_lock(LOCK);
+        map_treads[run_ID]->set_mutex_state(LOCK);
         schedule(run_ID);
     }
     mutex_uthreads.state = LOCK;
@@ -283,7 +287,7 @@ void rm_mutex(){
     int flug = true;
     for(int i : mutex_block_list){
         if(map_treads[i]->get_state() == READY){
-            map_treads[i]->set_mutex_lock(UNLOCK);
+            map_treads[i]->set_mutex_state(UNLOCK);
             ready_list.push_back(i);
             mutex_block_list.remove(i);
             flug = false;
@@ -293,7 +297,7 @@ void rm_mutex(){
     if(flug && !mutex_block_list.empty()){
         int i = mutex_block_list.front();
         mutex_block_list.pop_front();
-        map_treads[i]->set_mutex_lock(UNLOCK);
+        map_treads[i]->set_mutex_state(UNLOCK);
     }
 }
 
@@ -302,8 +306,8 @@ void rm_mutex(){
  */
 void schedule(int r){
     sigprocmask(SIG_SETMASK, &set, nullptr);
-    total_quantums ++;
-    if(ready_list.empty()){
+    total_quantums++;
+    if (ready_list.empty()){
         map_treads[run_ID]->inc_quantum();
         set_timer();
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
@@ -318,7 +322,7 @@ void schedule(int r){
     ready_list.pop_front();
     if(map_treads[run_ID]->get_state() == RUNNING){
         map_treads[run_ID]->set_state(READY);
-        if (map_treads[run_ID]->get_mutex_lock() == UNLOCK){
+        if(map_treads[run_ID]->get_mutex_state() == UNLOCK){
             ready_list.push_back(run_ID);
         }
     }
@@ -351,7 +355,7 @@ void delete_threads(){
  */
 int set_timer(){
     sa.sa_handler = &schedule;
-    if (sigaction(SIGVTALRM, &sa,nullptr) < 0) {
+    if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
         cerr << SYSTEM_ERROR_MESSAGE << "sigaction error\n";
         delete_threads();
         exit(EXIT_FAILURE);

@@ -46,10 +46,10 @@ void Threads::set_state(int s) {
     _state = s;
 }
 
-int Threads::get_mutex_lock() const {
+int Threads::get_mutex_state() const {
     return _mutex_lock;
 }
 
-void Threads::set_mutex_lock(int m) {
+void Threads::set_mutex_state(int m) {
     _mutex_lock = m;
 }

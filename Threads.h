@@ -99,12 +99,12 @@ public:
     /**
      * @return thread nutex_lock state
      */
-    int get_mutex_lock() const;
+    int get_mutex_state() const;
 
     /**
      * aet mutex_lock state for the thread
      */
-    void set_mutex_lock(int m);
+    void set_mutex_state(int m);
 
     /**
      * sigjmp buffer for thread
